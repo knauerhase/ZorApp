@@ -80,7 +80,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.mutableStateMapOf
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.example.zapp.smartframe.SmartFrameEngine
+import com.example.zapp.smartframe.DisplayMode
+import com.example.zapp.smartframe.SmartFrameData
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
@@ -111,39 +116,65 @@ class MainActivity : ComponentActivity() {
 fun ZoomableImageContainer(
     item: ImageItem,
     imageLoader: ImageLoader,
-    isFillMode: Boolean,
+    displayMode: DisplayMode,
+    smartFrameData: SmartFrameData?,
     modifier: Modifier = Modifier,
+    isFullScreen: Boolean = true,
+    onEnterFullScreen: () -> Unit = {},
     onScaleChanged: (Float) -> Unit = {}
 ) {
-    var scale by remember(item.name) { mutableFloatStateOf(1f) }
-    var offset by remember(item.name) { mutableStateOf(Offset.Zero) }
+    var userZoomMultiplier by remember(item.name, displayMode) { mutableFloatStateOf(1f) }
+    var userPanOffset by remember(item.name, displayMode) { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
 
+    val baseScale = when (displayMode) {
+        DisplayMode.SMART_FRAME -> smartFrameData?.scale ?: 1f
+        DisplayMode.FIT -> 1f
+        DisplayMode.FILL -> 1f
+    }
+
+    val baseOffset = when (displayMode) {
+        DisplayMode.SMART_FRAME -> smartFrameData?.offset ?: Offset.Zero
+        DisplayMode.FIT -> Offset.Zero
+        DisplayMode.FILL -> Offset.Zero
+    }
+
+    val targetScale = (baseScale * userZoomMultiplier).coerceIn(1f, 5f)
+    val targetOffset = baseOffset + userPanOffset
+
     val animatedScale by animateFloatAsState(
-        targetValue = scale,
-        animationSpec = tween(durationMillis = 200),
+        targetValue = targetScale,
+        animationSpec = tween(durationMillis = 280),
         label = "zoomScale"
+    )
+
+    val animatedOffsetX by animateFloatAsState(
+        targetValue = targetOffset.x,
+        animationSpec = tween(durationMillis = 280),
+        label = "offsetX"
+    )
+
+    val animatedOffsetY by animateFloatAsState(
+        targetValue = targetOffset.y,
+        animationSpec = tween(durationMillis = 280),
+        label = "offsetY"
     )
 
     LaunchedEffect(animatedScale) {
         onScaleChanged(animatedScale)
     }
 
-    val panModifier = if (scale > 1.05f) {
-        Modifier.pointerInput(item.name) {
+    val isPannable = (userZoomMultiplier > 1.05f) || (displayMode == DisplayMode.SMART_FRAME && baseScale > 1.15f)
+    val panModifier = if (isPannable && isFullScreen) {
+        Modifier.pointerInput(item.name, displayMode) {
             detectTransformGestures { _, pan, zoom, _ ->
-                val newScale = (scale * zoom).coerceIn(1f, 5f)
-                if (newScale > 1.05f) {
-                    val maxOffsetX = (containerSize.width * (newScale - 1f)) / 2f
-                    val maxOffsetY = (containerSize.height * (newScale - 1f)) / 2f
-                    val newOffsetX = (offset.x + pan.x).coerceIn(-maxOffsetX, maxOffsetX)
-                    val newOffsetY = (offset.y + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
-                    scale = newScale
-                    offset = Offset(newOffsetX, newOffsetY)
-                } else {
-                    scale = 1f
-                    offset = Offset.Zero
-                }
+                val newMult = (userZoomMultiplier * zoom).coerceIn(0.8f, 4f)
+                val maxOffsetX = (containerSize.width * (targetScale - 1f)) / 2f
+                val maxOffsetY = (containerSize.height * (targetScale - 1f)) / 2f
+                val newOffsetX = (userPanOffset.x + pan.x).coerceIn(-maxOffsetX, maxOffsetX)
+                val newOffsetY = (userPanOffset.y + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
+                userZoomMultiplier = newMult
+                userPanOffset = Offset(newOffsetX, newOffsetY)
             }
         }
     } else {
@@ -154,18 +185,24 @@ fun ZoomableImageContainer(
         modifier = modifier
             .fillMaxSize()
             .onSizeChanged { containerSize = it }
-            .pointerInput(item.name) {
-                detectTapGestures(
-                    onDoubleTap = {
-                        if (scale > 1.05f) {
-                            scale = 1f
-                            offset = Offset.Zero
-                        } else {
-                            scale = 2.5f
-                            offset = Offset.Zero
+            .pointerInput(item.name, isFullScreen, displayMode) {
+                if (isFullScreen) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            if (userZoomMultiplier > 1.05f) {
+                                userZoomMultiplier = 1f
+                                userPanOffset = Offset.Zero
+                            } else {
+                                userZoomMultiplier = if (displayMode == DisplayMode.SMART_FRAME) 1.6f else 2.5f
+                                userPanOffset = Offset.Zero
+                            }
                         }
-                    }
-                )
+                    )
+                } else {
+                    detectTapGestures(
+                        onTap = { onEnterFullScreen() }
+                    )
+                }
             }
             .then(panModifier),
         contentAlignment = Alignment.Center
@@ -174,19 +211,50 @@ fun ZoomableImageContainer(
             model = item.source,
             imageLoader = imageLoader,
             contentDescription = item.name,
-            contentScale = if (isFillMode) ContentScale.Crop else ContentScale.Fit,
+            contentScale = if (displayMode == DisplayMode.FILL) ContentScale.Crop else ContentScale.Fit,
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
                     scaleX = animatedScale
                     scaleY = animatedScale
-                    translationX = offset.x
-                    translationY = offset.y
+                    translationX = animatedOffsetX
+                    translationY = animatedOffsetY
                 }
         )
 
-        // Subdued Zoom Level badge when zoomed in
-        if (animatedScale > 1.05f) {
+        // Status badge when in Smart Frame mode
+        if (displayMode == DisplayMode.SMART_FRAME && smartFrameData != null && smartFrameData.hasSubject) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color.Black.copy(alpha = 0.75f),
+                border = BorderStroke(1.dp, Color(0xFF10B981)),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF38EF7D))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = smartFrameData.badgeText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF38EF7D)
+                    )
+                }
+            }
+        }
+
+        // Subdued Zoom Level badge when user manually zoomed in further
+        if (animatedScale > 1.05f && displayMode != DisplayMode.SMART_FRAME) {
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = Color.Black.copy(alpha = 0.7f),
@@ -213,12 +281,46 @@ fun ZappImageApp() {
     val imageItems = remember { mutableStateListOf<ImageItem>() }
     var selectedIndex by remember { mutableIntStateOf(0) }
     var statusMessage by remember { mutableStateOf("Scanning storage...") }
-    var isFillMode by remember { mutableStateOf(false) }
+    var displayMode by remember { mutableStateOf(DisplayMode.SMART_FRAME) }
+    val smartFrameCache = remember { mutableStateMapOf<String, SmartFrameData>() }
     var isFullScreen by remember { mutableStateOf(false) }
 
     val coroutineScope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { imageItems.size })
     var currentZoomScale by remember { mutableFloatStateOf(1f) }
+
+    // Asynchronously analyze current and adjacent images with on-device SmartFrameEngine
+    LaunchedEffect(selectedIndex, imageItems.size) {
+        if (imageItems.isNotEmpty() && selectedIndex in imageItems.indices) {
+            val current = imageItems[selectedIndex]
+            if (!smartFrameCache.containsKey(current.name)) {
+                val result = SmartFrameEngine.analyze(context, current.source, IntSize(800, 480))
+                smartFrameCache[current.name] = result
+            }
+
+            // Preload next image in background
+            if (selectedIndex + 1 < imageItems.size) {
+                val next = imageItems[selectedIndex + 1]
+                if (!smartFrameCache.containsKey(next.name)) {
+                    launch(Dispatchers.Default) {
+                        val result = SmartFrameEngine.analyze(context, next.source, IntSize(800, 480))
+                        smartFrameCache[next.name] = result
+                    }
+                }
+            }
+
+            // Preload previous image in background
+            if (selectedIndex - 1 >= 0) {
+                val prev = imageItems[selectedIndex - 1]
+                if (!smartFrameCache.containsKey(prev.name)) {
+                    launch(Dispatchers.Default) {
+                        val result = SmartFrameEngine.analyze(context, prev.source, IntSize(800, 480))
+                        smartFrameCache[prev.name] = result
+                    }
+                }
+            }
+        }
+    }
 
     // Keep selectedIndex in sync with pagerState
     LaunchedEffect(pagerState.currentPage) {
@@ -341,7 +443,9 @@ fun ZappImageApp() {
                 ZoomableImageContainer(
                     item = item,
                     imageLoader = imageLoader,
-                    isFillMode = isFillMode,
+                    displayMode = displayMode,
+                    smartFrameData = smartFrameCache[item.name],
+                    isFullScreen = true,
                     onScaleChanged = { currentZoomScale = it }
                 )
             }
@@ -369,22 +473,40 @@ fun ZappImageApp() {
                 }
             }
 
-            // TOP-RIGHT: Dedicated Scale Toggle button
+            // TOP-RIGHT: Dedicated 3-Way Mode Toggle button (Smart Frame -> Fit -> Fill)
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = Color.Black.copy(alpha = 0.75f),
-                border = BorderStroke(1.5.dp, Color(0xFF64748B)),
+                border = BorderStroke(1.5.dp, when (displayMode) {
+                    DisplayMode.SMART_FRAME -> Color(0xFF38EF7D)
+                    DisplayMode.FIT -> Color(0xFF64748B)
+                    DisplayMode.FILL -> Color(0xFFD0BCFF)
+                }),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(14.dp)
-                    .clickable { isFillMode = !isFillMode }
+                    .clickable {
+                        displayMode = when (displayMode) {
+                            DisplayMode.SMART_FRAME -> DisplayMode.FIT
+                            DisplayMode.FIT -> DisplayMode.FILL
+                            DisplayMode.FILL -> DisplayMode.SMART_FRAME
+                        }
+                    }
             ) {
                 Text(
-                    text = if (isFillMode) "Scale: Fill (Crop)" else "Scale: Fit (Full)",
+                    text = when (displayMode) {
+                        DisplayMode.SMART_FRAME -> "🐾 Mode: Smart Frame"
+                        DisplayMode.FIT -> "📐 Mode: Fit (Full)"
+                        DisplayMode.FILL -> "🔍 Mode: Fill (Crop)"
+                    },
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isFillMode) Color(0xFF38EF7D) else Color(0xFFD0BCFF),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                    color = when (displayMode) {
+                        DisplayMode.SMART_FRAME -> Color(0xFF38EF7D)
+                        DisplayMode.FIT -> Color(0xFFCBD5E1)
+                        DisplayMode.FILL -> Color(0xFFD0BCFF)
+                    },
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                 )
             }
 
@@ -677,20 +799,14 @@ fun ZappImageApp() {
                                     modifier = Modifier.fillMaxSize()
                                 ) { page ->
                                     val item = imageItems[page]
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clickable { isFullScreen = true },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        AsyncImage(
-                                            model = item.source,
-                                            imageLoader = imageLoader,
-                                            contentDescription = item.name,
-                                            contentScale = if (isFillMode) ContentScale.Crop else ContentScale.Fit,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    }
+                                    ZoomableImageContainer(
+                                        item = item,
+                                        imageLoader = imageLoader,
+                                        displayMode = displayMode,
+                                        smartFrameData = smartFrameCache[item.name],
+                                        isFullScreen = false,
+                                        onEnterFullScreen = { isFullScreen = true }
+                                    )
                                 }
 
                                 // Tap for Fullscreen chip (top-left)
@@ -715,16 +831,35 @@ fun ZappImageApp() {
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
                                     color = Color.Black.copy(alpha = 0.65f),
+                                    border = BorderStroke(1.dp, when (displayMode) {
+                                        DisplayMode.SMART_FRAME -> Color(0xFF38EF7D)
+                                        DisplayMode.FIT -> Color(0xFF64748B)
+                                        DisplayMode.FILL -> Color(0xFFD0BCFF)
+                                    }),
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .padding(8.dp)
-                                        .clickable { isFillMode = !isFillMode }
+                                        .clickable {
+                                            displayMode = when (displayMode) {
+                                                DisplayMode.SMART_FRAME -> DisplayMode.FIT
+                                                DisplayMode.FIT -> DisplayMode.FILL
+                                                DisplayMode.FILL -> DisplayMode.SMART_FRAME
+                                            }
+                                        }
                                 ) {
                                     Text(
-                                        text = if (isFillMode) "Mode: Fill (Tap to Fit)" else "Mode: Fit (Tap to Fill)",
+                                        text = when (displayMode) {
+                                            DisplayMode.SMART_FRAME -> "🐾 Smart Frame"
+                                            DisplayMode.FIT -> "📐 Fit"
+                                            DisplayMode.FILL -> "🔍 Fill"
+                                        },
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = if (isFillMode) Color(0xFF38EF7D) else Color(0xFFD0BCFF),
+                                        color = when (displayMode) {
+                                            DisplayMode.SMART_FRAME -> Color(0xFF38EF7D)
+                                            DisplayMode.FIT -> Color(0xFFCBD5E1)
+                                            DisplayMode.FILL -> Color(0xFFD0BCFF)
+                                        },
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                     )
                                 }
@@ -756,13 +891,23 @@ fun ZappImageApp() {
 
                                 // Dedicated tactile scaling button
                                 FilledTonalButton(
-                                    onClick = { isFillMode = !isFillMode },
+                                    onClick = {
+                                        displayMode = when (displayMode) {
+                                            DisplayMode.SMART_FRAME -> DisplayMode.FIT
+                                            DisplayMode.FIT -> DisplayMode.FILL
+                                            DisplayMode.FILL -> DisplayMode.SMART_FRAME
+                                        }
+                                    },
                                     modifier = Modifier.height(44.dp),
                                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        text = if (isFillMode) "Scale: Fill" else "Scale: Fit",
+                                        text = when (displayMode) {
+                                            DisplayMode.SMART_FRAME -> "🐾 Smart Frame"
+                                            DisplayMode.FIT -> "📐 Fit"
+                                            DisplayMode.FILL -> "🔍 Fill"
+                                        },
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )

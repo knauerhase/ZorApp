@@ -160,3 +160,22 @@ Scaffolded a complete, modern Android project in `C:\Robin\src\Zapp`:
       * Remote origin configured to `https://github.com/knauerhase/ZorApp.git`.
       * Authenticated via user PAT with `repo` scope and pushed initial commit `89a149a` to GitHub.
       * Verified repository live on GitHub and sanitized local git remote configuration so no tokens are persisted in `.git/config`.
+
+12. **Phase 8: Smart Frame Engine (AI Subject Framing) - Autonomous Execution**:
+    * **User Request:** Implement offline Smart Framing with on-device detection, execute autonomously without interaction, and log details in `AUTONOMOUSPhase8.md`.
+    * **On-Device Offline ML Pipeline:**
+      * Added `tensorflow-lite-task-vision:0.4.4` to version catalog and app dependencies.
+      * Bundled pre-quantized `efficientdet_lite0.tflite` (4.35 MB) in `app/src/main/assets/` with `androidResources { noCompress += "tflite" }`.
+      * Created `SmartFrameEngine.kt` with lazy singleton detector and sub-sampled bitmap decoding (<30ms inference).
+      * Supports 80 COCO classes with prioritization for cats, dogs, persons, and general focal objects.
+    * **Smart Framing Mathematical Engine:**
+      * Formulated Rule-of-Thirds placement (38-40% height) and feline headroom protection.
+      * Implemented multi-subject union bounding box calculation.
+    * **UI Modernization & 3-Way Mode Controller:**
+      * Replaced binary `isFillMode` with unified `DisplayMode` (`SMART_FRAME`, `FIT`, `FILL`).
+      * Added tactile 3-way toggle button with glanceable emerald status badge (`🐾 Cat Focused`).
+      * Implemented asynchronous coroutine pre-fetching of adjacent images (`Dispatchers.Default`).
+    * **Live Emulator Verification:**
+      * Deployed to Cadillac CTS 800×480 screen.
+      * Verified on user's cat portrait: `🐾 Cat Focused` badge displayed, ears protected, loaf body and collar captured.
+      * Captured comparison screenshots across all 3 modes and documented in `AUTONOMOUSPhase8.md`.

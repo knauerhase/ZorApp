@@ -33,7 +33,8 @@
   - **Double-Tap to Zoom:** Smooth 200ms animated toggle between `1.0x` and `2.5x` zoom.
   - **Pinch-to-Zoom & Pan:** Multi-touch zoom up to `5.0x` with bounded panning.
   - **Gesture Contention Safety:** Automatically locks pager scrolling during zoom (`scale > 1.05f`) to prevent accidental page transitions while panning details.
-- 🖼️ **Full-Screen Immersion & Return to Menu:** One-tap borderless full-screen view with a dedicated tactile `← Return to Menu` button and instant aspect ratio toggling (`Scale: Fit` vs. `Scale: Fill`).
+- 🐾 **Smart Frame (On-Device AI Subject Framing):** 100% offline neural network (TensorFlow Lite EfficientDet-Lite0) detects cats, pets, and subjects in <30ms, automatically framing with safe headroom, Rule-of-Thirds eye-line placement, and body inclusion on wide automotive displays.
+- 🖼️ **Full-Screen Immersion & Return to Menu:** One-tap borderless full-screen view with a dedicated tactile `← Return to Menu` button and 3-way mode cycling (`Smart Frame` ➔ `Fit` ➔ `Fill`).
 - 📁 **Direct Storage Scanning:** Automatically detects and loads photos from `/sdcard/zorapp` and `/sdcard/zapp` across JPG, JPEG, PNG, and animated GIF formats. Includes standard system file picker fallback.
 - 🐱 **Custom Cat Adaptive Launcher Icon:** Eye-catching feline silhouette with luminous irises, customized for Android adaptive icon safe zones and in-app header branding.
 
@@ -41,9 +42,16 @@
 
 ## 📸 Screenshots
 
-| App Drawer Launcher Icon | Full In-App Experience |
+### Smart Frame Comparison (Cadillac CTS 800×480)
+| 🐾 Mode: Smart Frame (AI Focus) | 📐 Mode: Fit (Full Image) | 🔍 Mode: Fill (Center Crop) |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/smartframe_comparison_smart.png" width="280" alt="Smart Frame" /> | <img src="docs/screenshots/smartframe_comparison_fit.png" width="280" alt="Fit Mode" /> | <img src="docs/screenshots/smartframe_comparison_fill.png" width="280" alt="Fill Mode" /> |
+| **Protected ears**, Rule-of-Thirds eyes, loaf body & collar captured. | Uncropped original; 65% of screen wasted on black bars. | Blind zoom; chops off paws, collar, and bottom torso. |
+
+### In-App UI & System Launcher
+| App Drawer Launcher Icon | Full In-App Experience with Cat Badge |
 | :---: | :---: |
-| <img src="docs/screenshots/launcher_zorapp.png" width="400" alt="ZorApp on Android Launcher" /> | <img src="docs/screenshots/zorapp_main_ui.png" width="400" alt="ZorApp Main UI" /> |
+| <img src="docs/screenshots/launcher_zorapp.png" width="380" alt="ZorApp on Android Launcher" /> | <img src="docs/screenshots/smartframe_preview_badge.png" width="380" alt="ZorApp Main UI with Cat Badge" /> |
 
 ---
 

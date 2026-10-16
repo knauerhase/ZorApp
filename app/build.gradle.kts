@@ -37,6 +37,9 @@ android {
     buildFeatures {
         compose = true
     }
+    androidResources {
+        noCompress += "tflite"
+    }
 }
 
 dependencies {
@@ -50,6 +53,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
+    implementation(libs.tensorflow.lite.task.vision)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

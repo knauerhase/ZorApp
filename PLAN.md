@@ -127,6 +127,29 @@ This document outlines the master development plan for the **Zapp** native Andro
 
 ---
 
+### Phase 8: Smart Frame Engine (AI-Guided Subject Framing)
+*Status: COMPLETED (100%)*
+- [x] **3-Way Display Mode Selector:**
+  * Defined `DisplayMode`: `SMART_FRAME` (AI Subject Focused), `FIT` (Letterbox Full), `FILL` (Brute-force Center Crop).
+  * Single-tap tactile cycle button (`Smart Frame` ➔ `Fit` ➔ `Fill`) in both 2-column album view and edge-to-edge full screen.
+  * Glanceable emerald status badges: `🐾 Cat Focused`, `👥 Multi-Subject`, `🎯 Subject Focused`.
+- [x] **Smart Framing Mathematical Engine:**
+  * Headroom protection padding (ensures feline ears are never chopped off).
+  * Rule-of-Thirds eye-line placement (38–40% display height).
+  * Body vector expansion allocating 5:3 landscape viewport around torso and paws.
+  * Multi-subject union bounding box calculation.
+  * Graceful fallback to `Fit` when no subjects are detected.
+- [x] **On-Device Offline Inference Pipeline:**
+  * Embedded quantized `efficientdet_lite0.tflite` (4.35 MB) in `app/src/main/assets/`.
+  * Configured `androidResources { noCompress += "tflite" }` for zero-copy memory mapping.
+  * Benchmarked at <30ms on-device inference with zero internet permissions.
+  * Asynchronous coroutine pre-fetching of adjacent images (`Dispatchers.Default`).
+- [x] **Live Verification:**
+  * Live comparison between `Smart Frame`, `Fit`, and `Fill` verified on Cadillac CTS 800×480 screen with user's cat portrait (`PXL_20260913_044249065~2.jpg`).
+  * Documented autonomous execution logs in [AUTONOMOUSPhase8.md](file:///c:/Robin/src/Zapp/AUTONOMOUSPhase8.md).
+
+---
+
 ### Future Enhancements Backlog (Saved for Next Phases)
 *Status: QUEUED*
 - [ ] **90° Rotation Toggle:** Quick-rotate button to turn portrait photos into landscape orientation.
