@@ -71,12 +71,12 @@
 
 ### 📦 Pre-Compiled Binary APK (No Compilation Needed)
 You can download and install ZorApp directly without needing Android Studio or compiling code:
-- **Direct Download:** [release/ZorApp-v0.4-rc.apk](release/ZorApp-v0.4-rc.apk)
-- **GitHub Release:** [ZorApp v0.4 Release Candidate](https://github.com/knauerhase/ZorApp/releases/tag/v0.4-rc)
+- **Direct Download:** [release/ZorApp-v0.41.apk](release/ZorApp-v0.41.apk)
+- **GitHub Release:** [ZorApp v0.41 Release](https://github.com/knauerhase/ZorApp/releases/tag/v0.41)
 
 To install directly to a connected Android phone or automotive head unit via ADB:
 ```powershell
-adb install -r release/ZorApp-v0.4-rc.apk
+adb install -r release/ZorApp-v0.41.apk
 ```
 
 ---
