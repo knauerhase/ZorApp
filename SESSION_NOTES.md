@@ -179,3 +179,23 @@ Scaffolded a complete, modern Android project in `C:\Robin\src\Zapp`:
       * Deployed to Cadillac CTS 800×480 screen.
       * Verified on user's cat portrait: `🐾 Cat Focused` badge displayed, ears protected, loaf body and collar captured.
       * Captured comparison screenshots across all 3 modes and documented in `AUTONOMOUSPhase8.md`.
+
+13. **ZorApp v0.42: Unified Bottom HUD Pill & Multi-Image Gallery Picker**:
+    * **User Feedback / Problem Statement:**
+      * On Google Pixel 11 Pro XL, buttons at the top of the screen (`← Return to Menu` and `🐾 Mode Toggle`) were eclipsed by the Android system status bar, camera punch-hole, and clock, making them impossible to press.
+      * User requested moving them to an optimal ergonomic location and enabling multi-image selection from the device gallery.
+    * **Unified Floating Bottom HUD Pill:**
+      * Consolidated `← Menu`, photo name & counter (`X of Y`), and the 3-way mode toggle (`🐾 Smart Frame` ➔ `📐 Fit` ➔ `🔍 Fill`) into a single high-contrast, semi-transparent frosted glass pill bar at `Alignment.BottomCenter`.
+      * Applied `Modifier.navigationBarsPadding()` and `padding(bottom = 12.dp)` so it stays completely clear of Android gesture/3-button navigation bars.
+      * Completely clears the top and sides of the photo, eliminating status bar touch contention and camera punch-hole occlusion.
+      * Applied `Modifier.statusBarsPadding()` to passive smart frame indicator badges and `StartSafetyDialog` modal.
+    * **Multi-Image Selection & Batch Auto-Import:**
+      * Replaced `ActivityResultContracts.GetContent()` with `ActivityResultContracts.GetMultipleContents()`.
+      * Users can now select multiple pictures simultaneously in the Android photo picker.
+      * All chosen photos are streamed and saved directly to `/sdcard/zorapp/` with extension preservation.
+      * Updated button label to **Pick Images** and status message to report count of imported images.
+    * **Release Compilation & ARM64 Stripping:**
+      * Bumped `versionCode = 6`, `versionName = "0.42"`.
+      * R8 bytecode minified, dead code eliminated, resources shrunk, native debug symbols stripped, and x86 emulator bloat removed (~13.3 MB APK).
+      * Output verified and published to `release/ZorApp-v0.42.apk`.
+

@@ -27,6 +27,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -233,7 +236,8 @@ fun ZoomableImageContainer(
                 color = Color.Black.copy(alpha = 0.75f),
                 border = BorderStroke(1.dp, Color(0xFF10B981)),
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
+                    .align(if (isFullScreen) Alignment.TopStart else Alignment.BottomStart)
+                    .then(if (isFullScreen) Modifier.statusBarsPadding() else Modifier)
                     .padding(14.dp)
             ) {
                 Row(
@@ -263,7 +267,8 @@ fun ZoomableImageContainer(
                 shape = RoundedCornerShape(8.dp),
                 color = Color.Black.copy(alpha = 0.7f),
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
+                    .align(if (isFullScreen) Alignment.TopEnd else Alignment.BottomEnd)
+                    .then(if (isFullScreen) Modifier.statusBarsPadding() else Modifier)
                     .padding(16.dp)
             ) {
                 Text(
@@ -399,53 +404,69 @@ fun ZorAppImageApp() {
         scanZorAppDirectory()
     }
 
-    // System file picker for JPG/PNG/GIF - Automatically imports into /sdcard/zorapp
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val rawName = queryFileName(context, uri) ?: "imported_${System.currentTimeMillis()}"
+    // System file picker for JPG/PNG/GIF - Supports multi-image selection and copying to /sdcard/zorapp
+    val multiFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
             val zorAppDir = File(Environment.getExternalStorageDirectory(), "zorapp")
             if (!zorAppDir.exists()) {
                 zorAppDir.mkdirs()
             }
 
-            // Ensure the imported file keeps its proper image extension
-            val extension = if (rawName.contains('.')) {
-                ""
-            } else {
-                val mime = context.contentResolver.getType(uri)
-                when (mime) {
-                    "image/png" -> ".png"
-                    "image/gif" -> ".gif"
-                    else -> ".jpg"
-                }
-            }
-            val fileName = rawName + extension
-            val destFile = File(zorAppDir, fileName)
+            var successCount = 0
+            var firstImportedName: String? = null
 
-            try {
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    destFile.outputStream().use { output ->
-                        input.copyTo(output)
+            for (uri in uris) {
+                val rawName = queryFileName(context, uri) ?: "imported_${System.currentTimeMillis()}"
+                val extension = if (rawName.contains('.')) {
+                    ""
+                } else {
+                    val mime = context.contentResolver.getType(uri)
+                    when (mime) {
+                        "image/png" -> ".png"
+                        "image/gif" -> ".gif"
+                        else -> ".jpg"
                     }
                 }
-                scanZorAppDirectory()
-                val importedIndex = imageItems.indexOfFirst { it.name.equals(fileName, ignoreCase = true) }
+                val fileName = rawName + extension
+                val destFile = File(zorAppDir, fileName)
+
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        destFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    successCount++
+                    if (firstImportedName == null) {
+                        firstImportedName = fileName
+                    }
+                } catch (e: Exception) {
+                    // Fallback: Display in-memory if disk write failed (e.g. storage error)
+                    val newItem = ImageItem(
+                        name = fileName,
+                        source = uri,
+                        isPicked = true
+                    )
+                    imageItems.add(0, newItem)
+                }
+            }
+
+            scanZorAppDirectory()
+            if (firstImportedName != null) {
+                val importedIndex = imageItems.indexOfFirst { it.name.equals(firstImportedName, ignoreCase = true) }
                 if (importedIndex != -1) {
                     selectedIndex = importedIndex
                 }
-                statusMessage = "Imported $fileName to /sdcard/zorapp"
-            } catch (e: Exception) {
-                // Fallback: Display in-memory if disk write failed (e.g. storage error)
-                val newItem = ImageItem(
-                    name = fileName,
-                    source = uri,
-                    isPicked = true
-                )
-                imageItems.add(0, newItem)
-                selectedIndex = 0
-                statusMessage = "Opened $fileName (Could not save to disk: ${e.localizedMessage})"
+            }
+
+            statusMessage = if (successCount == 1) {
+                "Imported $firstImportedName to /sdcard/zorapp"
+            } else if (successCount > 1) {
+                "Imported $successCount images to /sdcard/zorapp"
+            } else {
+                "Opened ${uris.size} image(s)"
             }
         }
     }
@@ -484,66 +505,6 @@ fun ZorAppImageApp() {
                     smartFrameData = smartFrameCache[item.name],
                     isFullScreen = true,
                     onScaleChanged = { currentZoomScale = it }
-                )
-            }
-
-            // TOP-LEFT: Dedicated tactile "Return to Menu" button (Option 2)
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color.Black.copy(alpha = 0.75f),
-                border = BorderStroke(1.5.dp, Color(0xFF64748B)),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(14.dp)
-                    .clickable { isFullScreen = false }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "← Return to Menu",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-            }
-
-            // TOP-RIGHT: Dedicated 3-Way Mode Toggle button (Smart Frame -> Fit -> Fill)
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color.Black.copy(alpha = 0.75f),
-                border = BorderStroke(1.5.dp, when (displayMode) {
-                    DisplayMode.SMART_FRAME -> Color(0xFF38EF7D)
-                    DisplayMode.FIT -> Color(0xFF64748B)
-                    DisplayMode.FILL -> Color(0xFFD0BCFF)
-                }),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(14.dp)
-                    .clickable {
-                        displayMode = when (displayMode) {
-                            DisplayMode.SMART_FRAME -> DisplayMode.FIT
-                            DisplayMode.FIT -> DisplayMode.FILL
-                            DisplayMode.FILL -> DisplayMode.SMART_FRAME
-                        }
-                    }
-            ) {
-                Text(
-                    text = when (displayMode) {
-                        DisplayMode.SMART_FRAME -> "🐾 Mode: Smart Frame"
-                        DisplayMode.FIT -> "📐 Mode: Fit (Full)"
-                        DisplayMode.FILL -> "🔍 Mode: Fill (Crop)"
-                    },
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = when (displayMode) {
-                        DisplayMode.SMART_FRAME -> Color(0xFF38EF7D)
-                        DisplayMode.FIT -> Color(0xFFCBD5E1)
-                        DisplayMode.FILL -> Color(0xFFD0BCFF)
-                    },
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                 )
             }
 
@@ -603,21 +564,106 @@ fun ZorAppImageApp() {
                 }
             }
 
-            // BOTTOM-CENTER: Subdued file info caption
+            // UNIFIED FLOATING BOTTOM HUD PILL (Consolidated in ZorApp v0.42)
+            // Completely immune to top status bar & camera punch-hole on Pixel 11 Pro XL
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = Color.Black.copy(alpha = 0.65f),
+                shape = RoundedCornerShape(22.dp),
+                color = Color(0xFF0F172A).copy(alpha = 0.90f),
+                border = BorderStroke(1.5.dp, Color(0xFF334155)),
+                shadowElevation = 8.dp,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 12.dp)
+                    .navigationBarsPadding()
+                    .padding(bottom = 12.dp, start = 12.dp, end = 12.dp)
             ) {
-                Text(
-                    text = "${currentItem.name}  •  ${selectedIndex + 1} of ${imageItems.size}",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFFE2E8F0),
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Tactile Return to Menu Button
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF1E293B),
+                        border = BorderStroke(1.dp, Color(0xFF475569)),
+                        modifier = Modifier
+                            .clickable { isFullScreen = false }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "← Menu",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    // Photo Filename & Counter
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .widthIn(max = 160.dp)
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Text(
+                            text = currentItem.name,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFF1F5F9),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${selectedIndex + 1} of ${imageItems.size}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
+
+                    // 3-Way Mode Toggle Button (Smart Frame -> Fit -> Fill)
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF1E293B),
+                        border = BorderStroke(1.2.dp, when (displayMode) {
+                            DisplayMode.SMART_FRAME -> Color(0xFF38EF7D)
+                            DisplayMode.FIT -> Color(0xFF64748B)
+                            DisplayMode.FILL -> Color(0xFFD0BCFF)
+                        }),
+                        modifier = Modifier
+                            .clickable {
+                                displayMode = when (displayMode) {
+                                    DisplayMode.SMART_FRAME -> DisplayMode.FIT
+                                    DisplayMode.FIT -> DisplayMode.FILL
+                                    DisplayMode.FILL -> DisplayMode.SMART_FRAME
+                                }
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = when (displayMode) {
+                                    DisplayMode.SMART_FRAME -> "🐾 Smart Frame"
+                                    DisplayMode.FIT -> "📐 Fit (Full)"
+                                    DisplayMode.FILL -> "🔍 Fill (Crop)"
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = when (displayMode) {
+                                    DisplayMode.SMART_FRAME -> Color(0xFF38EF7D)
+                                    DisplayMode.FIT -> Color(0xFFCBD5E1)
+                                    DisplayMode.FILL -> Color(0xFFD0BCFF)
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
     } else {
@@ -721,14 +767,14 @@ fun ZorAppImageApp() {
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
-                                onClick = { filePickerLauncher.launch("image/*") },
+                                onClick = { multiFilePickerLauncher.launch("image/*") },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(46.dp),
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C63FF))
                             ) {
-                                Text("Pick File", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("Pick Images", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
 
                             FilledTonalButton(
@@ -1074,6 +1120,8 @@ fun StartSafetyDialog(onDismiss: () -> Unit) {
             border = BorderStroke(1.5.dp, Color(0xFF38EF7D).copy(alpha = 0.7f)),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .padding(16.dp)
         ) {
             Column(
@@ -1107,7 +1155,7 @@ fun StartSafetyDialog(onDismiss: () -> Unit) {
                             color = Color(0xFF38EF7D)
                         )
                         Text(
-                            text = "v0.41",
+                            text = "v0.42",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF94A3B8)
