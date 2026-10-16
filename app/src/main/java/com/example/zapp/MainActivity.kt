@@ -399,20 +399,54 @@ fun ZorAppImageApp() {
         scanZorAppDirectory()
     }
 
-    // System file picker for JPG/PNG/GIF
+    // System file picker for JPG/PNG/GIF - Automatically imports into /sdcard/zorapp
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            val fileName = queryFileName(context, uri) ?: "Picked_Image_${System.currentTimeMillis()}"
-            val newItem = ImageItem(
-                name = fileName,
-                source = uri,
-                isPicked = true
-            )
-            imageItems.add(0, newItem)
-            selectedIndex = 0
-            statusMessage = "Opened: $fileName"
+            val rawName = queryFileName(context, uri) ?: "imported_${System.currentTimeMillis()}"
+            val zorAppDir = File(Environment.getExternalStorageDirectory(), "zorapp")
+            if (!zorAppDir.exists()) {
+                zorAppDir.mkdirs()
+            }
+
+            // Ensure the imported file keeps its proper image extension
+            val extension = if (rawName.contains('.')) {
+                ""
+            } else {
+                val mime = context.contentResolver.getType(uri)
+                when (mime) {
+                    "image/png" -> ".png"
+                    "image/gif" -> ".gif"
+                    else -> ".jpg"
+                }
+            }
+            val fileName = rawName + extension
+            val destFile = File(zorAppDir, fileName)
+
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    destFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                scanZorAppDirectory()
+                val importedIndex = imageItems.indexOfFirst { it.name.equals(fileName, ignoreCase = true) }
+                if (importedIndex != -1) {
+                    selectedIndex = importedIndex
+                }
+                statusMessage = "Imported $fileName to /sdcard/zorapp"
+            } catch (e: Exception) {
+                // Fallback: Display in-memory if disk write failed (e.g. storage error)
+                val newItem = ImageItem(
+                    name = fileName,
+                    source = uri,
+                    isPicked = true
+                )
+                imageItems.add(0, newItem)
+                selectedIndex = 0
+                statusMessage = "Opened $fileName (Could not save to disk: ${e.localizedMessage})"
+            }
         }
     }
 
