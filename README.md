@@ -95,6 +95,7 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 
 ## 📚 Documentation
 
+- [USER_MANUAL.md](USER_MANUAL.md) — Complete user guide, gestures, automotive ergonomics, and display modes.
 - [PLAN.md](PLAN.md) — Comprehensive technical architecture, display hardware specifications, and phase tracking.
 - [SESSION_NOTES.md](SESSION_NOTES.md) — Chronological engineering logs and architectural decisions.
 - [SDKandTools.md](SDKandTools.md) — Complete environment audit, tool versions, paths, and rollback guides.
