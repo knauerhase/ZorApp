@@ -194,6 +194,13 @@ Scaffolded a complete, modern Android project in `C:\Robin\src\Zapp`:
       * Users can now select multiple pictures simultaneously in the Android photo picker.
       * All chosen photos are streamed and saved directly to `/sdcard/zorapp/` with extension preservation.
       * Updated button label to **Pick Images** and status message to report count of imported images.
+    * **Storage Permission & Auto-Creation of /sdcard/zorapp:**
+      * **Root Cause Found:** On Android 11+ (API 30+) through Android 15 (Pixel 11 Pro XL), `Environment.getExternalStorageDirectory()` `/sdcard/zorapp/` is governed by Scoped Storage. While declared in the manifest, `MANAGE_EXTERNAL_STORAGE` requires system settings approval. Without it, `zorAppDir.mkdirs()` failed silently and `destFile.outputStream()` threw permission denied, falling back to in-memory display without writing to disk.
+      * **Fix Implemented:**
+        1. Added automatic `/sdcard/zorapp` creation on application launch and on activity resume (`ON_RESUME`).
+        2. Added `ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION` settings flow to grant All Files Access on first launch or via a dedicated in-app banner.
+        3. Updated `multiFilePickerLauncher` with collision-safe filenames (`name_1.jpg`, `name_2.jpg`), stream verification, and explicit success/failure status messaging.
+        4. Added `WRITE_EXTERNAL_STORAGE` to `AndroidManifest.xml` for backwards compatibility with Android 8-10.
     * **Release Compilation & ARM64 Stripping:**
       * Bumped `versionCode = 6`, `versionName = "0.42"`.
       * R8 bytecode minified, dead code eliminated, resources shrunk, native debug symbols stripped, and x86 emulator bloat removed (~13.3 MB APK).

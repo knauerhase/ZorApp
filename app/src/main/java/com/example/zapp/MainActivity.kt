@@ -2,16 +2,24 @@ package com.example.zapp
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -106,6 +114,22 @@ data class ImageItem(
     val sizeBytes: Long = 0,
     val isPicked: Boolean = false
 )
+
+fun hasStoragePermission(context: Context): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        Environment.isExternalStorageManager()
+    } else {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+    }
+}
+
+fun ensureZorAppDirectory(): File {
+    val zorAppDir = File(Environment.getExternalStorageDirectory(), "zorapp")
+    if (!zorAppDir.exists()) {
+        zorAppDir.mkdirs()
+    }
+    return zorAppDir
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -361,23 +385,27 @@ fun ZorAppImageApp() {
             .build()
     }
 
+    var isStorageGranted by remember { mutableStateOf(hasStoragePermission(context)) }
+
     // Function to scan local image directory (/sdcard/zorapp)
     fun scanZorAppDirectory() {
         imageItems.clear()
-        val zorAppDir = File(Environment.getExternalStorageDirectory(), "zorapp")
+        val zorAppDir = ensureZorAppDirectory()
         if (!zorAppDir.exists()) {
-            zorAppDir.mkdirs()
-        }
-
-        val foundFiles = mutableListOf<File>()
-        if (zorAppDir.exists()) {
-            val files = zorAppDir.listFiles { file ->
-                val ext = file.extension.lowercase()
-                ext in listOf("jpg", "jpeg", "png", "gif")
+            statusMessage = if (!isStorageGranted) {
+                "Storage Access Required: Tap above to allow /sdcard/zorapp"
+            } else {
+                "Cannot access /sdcard/zorapp"
             }
-            if (files != null) foundFiles.addAll(files)
+            return
         }
 
+        val files = zorAppDir.listFiles { file ->
+            val ext = file.extension.lowercase()
+            ext in listOf("jpg", "jpeg", "png", "gif")
+        }
+
+        val foundFiles = files?.toList() ?: emptyList()
         if (foundFiles.isNotEmpty()) {
             foundFiles.distinctBy { it.name.lowercase() }.sortedBy { it.name.lowercase() }.forEach { file ->
                 imageItems.add(
@@ -388,34 +416,85 @@ fun ZorAppImageApp() {
                     )
                 )
             }
-            statusMessage = "Loaded ${imageItems.size} image(s)"
+            statusMessage = "Loaded ${imageItems.size} image(s) from /sdcard/zorapp"
             if (selectedIndex >= imageItems.size) {
                 selectedIndex = 0
             }
         } else {
-            statusMessage = "No images found. Add JPG/GIF/PNG or pick a file."
+            statusMessage = "Folder /sdcard/zorapp ready. Tap 'Pick Images' to import."
         }
     }
 
-    // Storage permission launcher
+    // Storage permission launcher for legacy Android (< API 30)
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) {
+        isStorageGranted = hasStoragePermission(context)
+        ensureZorAppDirectory()
         scanZorAppDirectory()
     }
 
-    // System file picker for JPG/PNG/GIF - Supports multi-image selection and copying to /sdcard/zorapp
+    // System Settings launcher for Android 11+ (API 30+) All Files Access
+    val manageStorageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        isStorageGranted = hasStoragePermission(context)
+        ensureZorAppDirectory()
+        scanZorAppDirectory()
+    }
+
+    fun requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+                manageStorageLauncher.launch(intent)
+            } catch (e: Exception) {
+                val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                manageStorageLauncher.launch(intent)
+            }
+        } else {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                )
+            )
+        }
+    }
+
+    // Lifecycle observer: Auto-create directory and rescan whenever app comes to foreground
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isStorageGranted = hasStoragePermission(context)
+                ensureZorAppDirectory()
+                scanZorAppDirectory()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // System file picker for JPG/PNG/GIF - Copies all selected images to /sdcard/zorapp
     val multiFilePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
-            val zorAppDir = File(Environment.getExternalStorageDirectory(), "zorapp")
+            val zorAppDir = ensureZorAppDirectory()
             if (!zorAppDir.exists()) {
-                zorAppDir.mkdirs()
+                statusMessage = "Cannot write to /sdcard/zorapp. Storage permission required."
+                requestStoragePermission()
+                return@rememberLauncherForActivityResult
             }
 
             var successCount = 0
             var firstImportedName: String? = null
+            var lastError: String? = null
 
             for (uri in uris) {
                 val rawName = queryFileName(context, uri) ?: "imported_${System.currentTimeMillis()}"
@@ -429,8 +508,15 @@ fun ZorAppImageApp() {
                         else -> ".jpg"
                     }
                 }
-                val fileName = rawName + extension
-                val destFile = File(zorAppDir, fileName)
+                val initialName = rawName + extension
+                var destFile = File(zorAppDir, initialName)
+                var counter = 1
+                val base = initialName.substringBeforeLast('.')
+                val ext = if (initialName.contains('.')) "." + initialName.substringAfterLast('.') else ""
+                while (destFile.exists()) {
+                    destFile = File(zorAppDir, "${base}_$counter$ext")
+                    counter++
+                }
 
                 try {
                     context.contentResolver.openInputStream(uri)?.use { input ->
@@ -438,14 +524,17 @@ fun ZorAppImageApp() {
                             input.copyTo(output)
                         }
                     }
-                    successCount++
-                    if (firstImportedName == null) {
-                        firstImportedName = fileName
+                    if (destFile.exists() && destFile.length() > 0) {
+                        successCount++
+                        if (firstImportedName == null) {
+                            firstImportedName = destFile.name
+                        }
                     }
                 } catch (e: Exception) {
+                    lastError = e.localizedMessage ?: e.message
                     // Fallback: Display in-memory if disk write failed (e.g. storage error)
                     val newItem = ImageItem(
-                        name = fileName,
+                        name = destFile.name,
                         source = uri,
                         isPicked = true
                     )
@@ -466,19 +555,19 @@ fun ZorAppImageApp() {
             } else if (successCount > 1) {
                 "Imported $successCount images to /sdcard/zorapp"
             } else {
-                "Opened ${uris.size} image(s)"
+                "Failed saving to /sdcard/zorapp: $lastError"
             }
         }
     }
 
-    // Request permissions and scan on launch
+    // Auto-create /sdcard/zorapp on startup and request storage access if needed
     LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= 33) {
-            permissionLauncher.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES))
+        if (!hasStoragePermission(context)) {
+            requestStoragePermission()
         } else {
-            permissionLauncher.launch(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE))
+            ensureZorAppDirectory()
+            scanZorAppDirectory()
         }
-        scanZorAppDirectory()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -761,13 +850,44 @@ fun ZorAppImageApp() {
                             .fillMaxSize()
                             .padding(10.dp)
                     ) {
-                        // Actions row: Pick File + Rescan
+                        // Storage Access Warning Banner
+                        if (!isStorageGranted) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF7F1D1D).copy(alpha = 0.85f),
+                                border = BorderStroke(1.dp, Color(0xFFEF4444)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                                    .clickable { requestStoragePermission() }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "⚠️ Storage Access Required: Tap to Grant",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFEE2E2)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Actions row: Pick Images + Rescan
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
-                                onClick = { multiFilePickerLauncher.launch("image/*") },
+                                onClick = {
+                                    if (!hasStoragePermission(context)) {
+                                        requestStoragePermission()
+                                    } else {
+                                        multiFilePickerLauncher.launch("image/*")
+                                    }
+                                },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(46.dp),
