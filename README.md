@@ -35,7 +35,8 @@
   - **Gesture Contention Safety:** Automatically locks pager scrolling during zoom (`scale > 1.05f`) to prevent accidental page transitions while panning details.
 - 🐾 **Smart Frame (On-Device AI Subject Framing):** 100% offline neural network (TensorFlow Lite EfficientDet-Lite0) detects cats, pets, and subjects in <30ms, automatically framing with safe headroom, Rule-of-Thirds eye-line placement, and body inclusion on wide automotive displays.
 - 🖼️ **Full-Screen Immersion & Return to Menu:** One-tap borderless full-screen view with a dedicated tactile `← Return to Menu` button and 3-way mode cycling (`Smart Frame` ➔ `Fit` ➔ `Fill`).
-- 📁 **Direct Storage Scanning:** Automatically detects and loads photos from `/sdcard/zorapp` and `/sdcard/zapp` across JPG, JPEG, PNG, and animated GIF formats. Includes standard system file picker fallback.
+- 📁 **Direct Storage Scanning:** Automatically detects and loads photos from `/sdcard/zorapp` across JPG, JPEG, PNG, and animated GIF formats. Includes standard system file picker fallback.
+- ⚠️ **Automotive Start Screen & Safety Disclaimer:** In-cabin automotive compliance disclaimer (*"Do not use this app while driving. Operate only when vehicle is safely parked"*), avatar portrait of Zora the Cat 🐾, dedication credits, and quick re-opening from the TopAppBar.
 - 🐱 **Custom Cat Adaptive Launcher Icon:** Eye-catching feline silhouette with luminous irises, customized for Android adaptive icon safe zones and in-app header branding.
 
 ---
@@ -66,9 +67,21 @@
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start & Downloads
 
-### 1. Build from Terminal
+### 📦 Pre-Compiled Binary APK (No Compilation Needed)
+You can download and install ZorApp directly without needing Android Studio or compiling code:
+- **Direct Download:** [release/ZorApp-v0.4-rc.apk](release/ZorApp-v0.4-rc.apk)
+- **GitHub Release:** [ZorApp v0.4 Release Candidate](https://github.com/knauerhase/ZorApp/releases/tag/v0.4-rc)
+
+To install directly to a connected Android phone or automotive head unit via ADB:
+```powershell
+adb install -r release/ZorApp-v0.4-rc.apk
+```
+
+---
+
+### 🔨 Build from Terminal (Developers)
 ```powershell
 # Clone the repository
 git clone https://github.com/knauerhase/ZorApp.git

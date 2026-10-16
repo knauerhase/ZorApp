@@ -15,9 +15,18 @@ Welcome to **ZorApp**, the privacy-first, offline image viewer designed specific
 
 ---
 
-## 1. Quick Start
+## 1. Quick Start & Driver Safety
 
-When you launch ZorApp, you will see a high-contrast 2-column dashboard:
+### Automotive Start Screen
+Whenever you launch ZorApp, you are greeted with the **Automotive Driver Safety Notice**:
+* **Driver Warning:** Reminds drivers: *"Do not use this app while driving. Operate only when vehicle is safely parked."*
+* **Zora the Cat 🐾:** Portrait of Zora with release candidate version info.
+* **Credits:** Dedication credits to Zora and creator Robin Knauerhase (`knauerhase`).
+* **One-Tap Acknowledgment:** Tap **I Understand & Agree** to proceed to the main photo dashboard.
+* **Re-open Anytime:** Tap Zora's avatar or the **ℹ️ Info & Safety** button in the top bar whenever you want to re-review safety guidelines or credits.
+
+### Main Dashboard
+Once acknowledged, you will see a high-contrast 2-column dashboard:
 * **Left Column:** Your local photo album, file picker, and storage scanner.
 * **Right Column:** The active image preview with live **Smart Frame** subject tracking and quick controls.
 
@@ -30,9 +39,8 @@ Tap any photo in the list (or tap **⛶ Fullscreen**) to enter edge-to-edge full
 ZorApp is 100% air-gapped and reads images directly from local device storage without ever touching the internet.
 
 ### Option A: Direct Folder Sync (Recommended)
-Place your pictures directly into either of these directories on your phone, SD card, or automotive head-unit storage:
+Place your pictures directly into the dedicated ZorApp directory on your phone, SD card, or automotive head-unit storage:
 * `/sdcard/zorapp/`
-* `/sdcard/zapp/`
 
 > [!TIP]
 > Whenever you copy new photos over USB, simply tap the **Rescan** button in the left panel. ZorApp will automatically detect, index, and sort all new images in under a second.

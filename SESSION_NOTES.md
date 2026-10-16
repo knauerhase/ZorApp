@@ -1,6 +1,6 @@
-# Session Development Notes: Zapp
+# Session Development Notes: ZorApp
 
-This log maintains a running record of all actions, setup decisions, file changes, and tool installations performed during development sessions for the **Zapp** native Android project.
+This log maintains a running record of all actions, setup decisions, file changes, and tool installations performed during development sessions for the **ZorApp** native Android project.
 
 ---
 
@@ -95,9 +95,9 @@ Scaffolded a complete, modern Android project in `C:\Robin\src\Zapp`:
 
 6. **User Sample Photos & Live Desktop Window Mirroring**:
    * User added four real Pixel photos to `sample_images/` (`PXL_20260905_060813676.jpg`, `PXL_20260913_044249065~2.jpg`, `PXL_20260928_173015801.jpg`, `Screenshot_20260923-231641~3.jpg`).
-   * Pushed all user images to `/sdcard/zapp/` on the emulator; verified real-time detection and rendering.
+   * Pushed all user images to `/sdcard/zorapp/` on the emulator; verified real-time detection and rendering.
    * Installed `scrcpy` (v4.1) via winget to mirror the 800x480 Cadillac CTS screen in an interactive desktop window.
-   * Created one-click desktop script [view_zapp_screen.bat](file:///c:/Robin/src/Zapp/view_zapp_screen.bat) to open the live window at any time.
+   * Created one-click desktop script [view_zorapp_screen.bat](file:///c:/Robin/src/Zapp/view_zorapp_screen.bat) to open the live window at any time.
 
 7. **Image Scaling Implementation & Backlog Preservation**:
    * User decision: Start with the tactile Scale Mode Toggle button (`Fit` vs `Fill / Crop`) and reserve other options for future phases.

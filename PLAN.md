@@ -1,6 +1,6 @@
-# Zapp Project Plan & Roadmap
+# ZorApp Project Plan & Roadmap
 
-This document outlines the master development plan for the **Zapp** native Android app. It tracks current progress, completed milestones, active tasks, and upcoming phases so you can instantly see where we are in the project lifecycle.
+This document outlines the master development plan for the **ZorApp** native Android app. It tracks current progress, completed milestones, active tasks, and upcoming phases so you can instantly see where we are in the project lifecycle.
 
 ---
 
@@ -62,17 +62,17 @@ This document outlines the master development plan for the **Zapp** native Andro
 ### Phase 4: Strict Offline-Only Architecture & Image Viewer Feature
 *Status: COMPLETED (100%)*
 - **Selected Architecture:**
-  * **App Concept:** 100% offline image viewer & manager for `/sdcard/zapp` and system file picker.
+  * **App Concept:** 100% offline image viewer & manager for `/sdcard/zorapp` and system file picker.
   * **Network Policy:** **Strictly Zero Internet Connections** (`android.permission.INTERNET` is omitted from the manifest).
   * **Display Layout:** Optimized for **800 x 480 landscape** (2016 Cadillac CTS) while scaling responsively to Pixel 11 Pro XL.
   * **Supported Formats:** JPG, JPEG, PNG, and GIF (including animated GIFs via `coil-gif`).
   * **Privacy Guarantee:** Complete data isolation; zero telemetry, zero analytics, zero external network sockets.
 - [x] Add Coil (`coil-compose:2.7.0` and `coil-gif:2.7.0`) to `gradle/libs.versions.toml` and `app/build.gradle.kts`.
 - [x] Configure storage permissions in `AndroidManifest.xml` (`READ_MEDIA_IMAGES`, `MANAGE_EXTERNAL_STORAGE`).
-- [x] Implement `/sdcard/zapp` directory scanner in `MainActivity.kt`.
+- [x] Implement `/sdcard/zorapp` directory scanner in `MainActivity.kt`.
 - [x] Implement system file picker (`ActivityResultContracts.GetContent()`) for user-selected images.
 - [x] Build 2-column landscape UI (Left: thumbnail strip & file browser; Right: full viewport with Prev/Next).
-- [x] Create and push sample JPG, PNG, and GIF test assets to `/sdcard/zapp/` on the Cadillac CTS emulator.
+- [x] Create and push sample JPG, PNG, and GIF test assets to `/sdcard/zorapp/` on the Cadillac CTS emulator.
 - [x] Compile APK, deploy to emulator, and verify interactive rendering of all image formats.
 
 ---

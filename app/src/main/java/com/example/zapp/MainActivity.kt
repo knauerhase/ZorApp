@@ -22,9 +22,12 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -76,6 +79,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -106,7 +110,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ZappTheme(darkTheme = true) {
-                ZappImageApp()
+                ZorAppImageApp()
             }
         }
     }
@@ -276,7 +280,7 @@ fun ZoomableImageContainer(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ZappImageApp() {
+fun ZorAppImageApp() {
     val context = LocalContext.current
     val imageItems = remember { mutableStateListOf<ImageItem>() }
     var selectedIndex by remember { mutableIntStateOf(0) }
@@ -284,6 +288,7 @@ fun ZappImageApp() {
     var displayMode by remember { mutableStateOf(DisplayMode.SMART_FRAME) }
     val smartFrameCache = remember { mutableStateMapOf<String, SmartFrameData>() }
     var isFullScreen by remember { mutableStateOf(false) }
+    var showStartScreen by remember { mutableStateOf(true) }
 
     val coroutineScope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { imageItems.size })
@@ -351,24 +356,21 @@ fun ZappImageApp() {
             .build()
     }
 
-    // Function to scan local image directories (/sdcard/zapp and /sdcard/zorapp)
-    fun scanZappDirectory() {
+    // Function to scan local image directory (/sdcard/zorapp)
+    fun scanZorAppDirectory() {
         imageItems.clear()
-        val dirs = listOf(
-            File(Environment.getExternalStorageDirectory(), "zapp"),
-            File(Environment.getExternalStorageDirectory(), "zorapp")
-        )
-        dirs.firstOrNull()?.let { if (!it.exists()) it.mkdirs() }
+        val zorAppDir = File(Environment.getExternalStorageDirectory(), "zorapp")
+        if (!zorAppDir.exists()) {
+            zorAppDir.mkdirs()
+        }
 
         val foundFiles = mutableListOf<File>()
-        dirs.forEach { dir ->
-            if (dir.exists()) {
-                val files = dir.listFiles { file ->
-                    val ext = file.extension.lowercase()
-                    ext in listOf("jpg", "jpeg", "png", "gif")
-                }
-                if (files != null) foundFiles.addAll(files)
+        if (zorAppDir.exists()) {
+            val files = zorAppDir.listFiles { file ->
+                val ext = file.extension.lowercase()
+                ext in listOf("jpg", "jpeg", "png", "gif")
             }
+            if (files != null) foundFiles.addAll(files)
         }
 
         if (foundFiles.isNotEmpty()) {
@@ -394,7 +396,7 @@ fun ZappImageApp() {
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        scanZappDirectory()
+        scanZorAppDirectory()
     }
 
     // System file picker for JPG/PNG/GIF
@@ -421,10 +423,11 @@ fun ZappImageApp() {
         } else {
             permissionLauncher.launch(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE))
         }
-        scanZappDirectory()
+        scanZorAppDirectory()
     }
 
-    if (isFullScreen && imageItems.isNotEmpty() && selectedIndex in imageItems.indices) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (isFullScreen && imageItems.isNotEmpty() && selectedIndex in imageItems.indices) {
         val currentItem = imageItems[selectedIndex]
         BackHandler { isFullScreen = false }
 
@@ -594,38 +597,60 @@ fun ZappImageApp() {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable { showStartScreen = true }
+                            ) {
                                 Image(
                                     painter = painterResource(id = R.drawable.cat_avatar),
                                     contentDescription = "ZorApp Cat",
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
-                                        .border(1.5.dp, Color(0xFF6C63FF), CircleShape),
+                                        .border(1.5.dp, Color(0xFF38EF7D), CircleShape),
                                     contentScale = ContentScale.Crop
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text("ZorApp Image Viewer", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                             }
 
-                            // Air-Gapped Offline Badge
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFF1E293B),
-                                modifier = Modifier.padding(end = 12.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Info & Safety Button
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF1E293B),
+                                    border = BorderStroke(1.dp, Color(0xFF334155)),
+                                    modifier = Modifier
+                                        .padding(end = 8.dp)
+                                        .clickable { showStartScreen = true }
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(7.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF10B981))
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Offline ZorApp", fontSize = 11.sp, color = Color(0xFFE2E8F0))
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("ℹ️ Info & Safety", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFE2E8F0))
+                                    }
+                                }
+
+                                // Air-Gapped Offline Badge
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF1E293B),
+                                    modifier = Modifier.padding(end = 12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF10B981))
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Offline ZorApp", fontSize = 11.sp, color = Color(0xFFE2E8F0))
+                                    }
                                 }
                             }
                         }
@@ -673,7 +698,7 @@ fun ZappImageApp() {
                             }
 
                             FilledTonalButton(
-                                onClick = { scanZappDirectory() },
+                                onClick = { scanZorAppDirectory() },
                                 modifier = Modifier
                                     .weight(0.8f)
                                     .height(46.dp),
@@ -987,6 +1012,157 @@ fun ZappImageApp() {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // START SCREEN / DRIVER SAFETY DISCLAIMER MODAL
+    if (showStartScreen) {
+        StartSafetyDialog(onDismiss = { showStartScreen = false })
+    }
+}
+}
+
+@Composable
+fun StartSafetyDialog(onDismiss: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.88f))
+            .clickable(enabled = false) {}
+            .zIndex(100f),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = Color(0xFF0F172A),
+            border = BorderStroke(1.5.dp, Color(0xFF38EF7D).copy(alpha = 0.7f)),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Left Column: Zora Avatar & Tagline
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(end = 18.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.cat_avatar),
+                            contentDescription = "Zora",
+                            modifier = Modifier
+                                .size(90.dp)
+                                .clip(CircleShape)
+                                .border(2.5.dp, Color(0xFF38EF7D), CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Zora 🐾",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF38EF7D)
+                        )
+                        Text(
+                            text = "v0.4-rc",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
+
+                    // Right Column: Safety Banner & Credits
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        // Driver Safety Notice
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF450A0A).copy(alpha = 0.6f),
+                            border = BorderStroke(1.5.dp, Color(0xFFEF4444)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    text = "⚠️ DRIVER SAFETY WARNING",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFFFCA5A5)
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = "Do not use or interact with this app while driving. Operate only when vehicle is safely parked.",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFFFEE2E2),
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Credits & Dedication
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF1E293B).copy(alpha = 0.7f),
+                            border = BorderStroke(1.dp, Color(0xFF334155)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(9.dp)) {
+                                Text(
+                                    text = "Credits & Dedication",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF38EF7D)
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = "• Dedicated with love to Zora the Cat 🐾",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFE2E8F0)
+                                )
+                                Text(
+                                    text = "• Created by Robin Knauerhase (knauerhase)",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFCBD5E1)
+                                )
+                                Text(
+                                    text = "• Smart Framing powered by on-device AI (TensorFlow Lite)",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Tactile Automotive Acknowledgment Button
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                ) {
+                    Text(
+                        text = "I Understand & Agree  ➔",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 }
             }
         }

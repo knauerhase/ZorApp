@@ -1,6 +1,6 @@
-# SDK and Tools Inventory for Zapp
+# SDK and Tools Inventory for ZorApp
 
-This document tracks all SDKs, runtimes, command-line tools, and environment variables installed or configured to develop and build the **Zapp** native Android application. It also provides clean uninstall and rollback instructions for every component.
+This document tracks all SDKs, runtimes, command-line tools, and environment variables installed or configured to develop and build the **ZorApp** native Android application. It also provides clean uninstall and rollback instructions for every component.
 
 ---
 
