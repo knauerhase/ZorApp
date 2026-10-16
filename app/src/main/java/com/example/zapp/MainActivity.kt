@@ -1107,7 +1107,7 @@ fun StartSafetyDialog(onDismiss: () -> Unit) {
                             color = Color(0xFF38EF7D)
                         )
                         Text(
-                            text = "v0.4-rc",
+                            text = "v0.41",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF94A3B8)
